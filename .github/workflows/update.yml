@@ -1,0 +1,25 @@
+name: Update AUR Packages
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 */8 * * *
+
+jobs:
+  update-aur-packages:
+    name: Update AUR Packages
+    environment: AUR-ssh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Run Archlinux docker
+        run: |
+          docker run \
+          --pull always \
+          -e "SSH_PRIV_KEY=${{ secrets.SSH_PRIV_KEY }}" \
+          -e "ACTOR=${GITHUB_ACTOR}" \
+          -v $(pwd):/scripts \
+          archlinux:base-devel \
+          bash /scripts/auto-updater.sh /scripts/packages.csv

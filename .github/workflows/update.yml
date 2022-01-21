@@ -22,4 +22,4 @@ jobs:
           -e "ACTOR=${GITHUB_ACTOR}" \
           -v $(pwd):/scripts \
           archlinux:base-devel \
-          bash /scripts/auto-updater.sh /scripts/packages.csv
+          bash /scripts/auto-updater.sh

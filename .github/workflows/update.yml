@@ -20,6 +20,7 @@ jobs:
           --pull always \
           -e "SSH_PRIV_KEY=${{ secrets.SSH_PRIV_KEY }}" \
           -e "ACTOR=${GITHUB_ACTOR}" \
+          -e "CI=${CI}" \
           -v $(pwd):/scripts \
           archlinux:base-devel \
           bash /scripts/auto-updater.sh

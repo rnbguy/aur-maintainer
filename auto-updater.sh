@@ -31,25 +31,29 @@ function latest_release() {
 echo "Running the auto updater.."
 
 ssh aur@aur.archlinux.org list-repos | while read pkgname; do
-    git clone --depth 1 "ssh://aur@aur.archlinux.org/${pkgname}"
-    chown -R pasudo "${pkgname}"
-    cd "${pkgname}"
-    echo "[${pkgname}] trying to update"
-    if ghpath="$(grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)" .SRCINFO)"; then
-        old_ver=$(grep -oP "pkgver = \K.*$" .SRCINFO)
+    srcinfo_blob=$(curl -s "https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}")
+    if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
+        old_ver=$(echo "${srcinfo_blob}" | grep -oP "pkgver = \K.*$")
         new_ver=$(latest_release "${ghpath}") || (>&2 echo "[${pkgname}] GH API failed" && exit)
+
         echo "[${pkgname}] https://github.com/${ghpath} : ${old_ver} => ${new_ver}"
-        sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
-        if ! git diff --quiet; then
+
+        if [[ "${old_ver}" != "${new_ver}" ]]; then
+            echo "[${pkgname}] Updating"
+            git clone --depth 1 "ssh://aur@aur.archlinux.org/${pkgname}"
+            echo "[${pkgname}] Cloned"
+            chown -R pasudo "${pkgname}"
+            cd "${pkgname}"
+            sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
             sudo -u pasudo updpkgsums
             sudo -u pasudo makepkg --printsrcinfo > .SRCINFO
             git commit -am "$new_ver" && git push && echo "[${pkgname}] updated to ${new_ver}"
             git clean -fdx
+            cd - > /dev/null
         else
             echo "[${pkgname}] no update"
         fi
     else
         echo "[${pkgname}] not a github project"
     fi
-    cd - > /dev/null
 done

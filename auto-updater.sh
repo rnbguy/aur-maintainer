@@ -50,9 +50,12 @@ ssh aur@aur.archlinux.org list-repos | while read pkgname; do
             chown -R pasudo "${pkgname}"
             cd "${pkgname}"
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
-            ${PASUDO} updpkgsums
-            ${PASUDO} makepkg --printsrcinfo > .SRCINFO
-            git commit -am "$new_ver" && git push && echo "[${pkgname}] updated to ${new_ver}"
+            if ${PASUDO} updpkgsums; then
+                ${PASUDO} makepkg --printsrcinfo > .SRCINFO
+                git commit -am "$new_ver" && git push && echo "[${pkgname}] updated to ${new_ver}"
+            else
+                echo "[${pkgname}] Updating checksums failed"
+            fi
             git clean -fdx
             cd - > /dev/null
         else

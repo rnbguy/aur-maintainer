@@ -55,10 +55,10 @@ ssh aur@aur.archlinux.org list-repos | while read pkgname; do
                 if ${PASUDO} makepkg -sc; then
                     git commit -am "$new_ver" && git push && echo "[${pkgname}] updated to ${new_ver}"
                 else
-                    echo "[${pkgname}] makepkg -sc failed"
+                    >&2 echo "[${pkgname}] makepkg -sc failed"
                 fi
             else
-                echo "[${pkgname}] Updating checksums failed"
+                >&2 echo "[${pkgname}] Updating checksums failed"
             fi
             git clean -fdx
             cd - > /dev/null

@@ -60,7 +60,7 @@ ssh aur@aur.archlinux.org list-repos | while read pkgname; do
             else
                 >&2 echo "[${pkgname}] Updating checksums failed"
             fi
-            git clean -fdx
+            ${PASUDO} git clean -fdx
             cd - > /dev/null
         else
             echo "[${pkgname}] no update"

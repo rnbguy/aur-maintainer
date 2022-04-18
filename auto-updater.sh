@@ -9,7 +9,7 @@ if [[ -n "${CI-}" ]]; then
     [[ -z "${ACTOR}" ]] && >&2 echo "no actor" && exit
 
     # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
-    2>&1 pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null
+    2>&1 pacman -Syu git jq openssh pacman-contrib java-runtime --asdeps --needed --noconfirm > /dev/null
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"

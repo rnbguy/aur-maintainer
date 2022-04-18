@@ -9,7 +9,7 @@ if [[ -n "${CI-}" ]]; then
     [[ -z "${ACTOR}" ]] && >&2 echo "no actor" && exit
 
     # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
-    2>&1 pacman -Syu git jq openssh pacman-contrib java-runtime --asdeps --needed --noconfirm > /dev/null
+    2>&1 pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"
@@ -52,7 +52,7 @@ ssh aur@aur.archlinux.org list-repos | while read pkgname; do
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
             if ${PASUDO} updpkgsums; then
                 ${PASUDO} makepkg --printsrcinfo > .SRCINFO
-                if ${PASUDO} makepkg && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
+                if ${PASUDO} makepkg -sc && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
                     echo "[${pkgname}] updated to ${new_ver}"
                 else
                     >&2 echo "[${pkgname}] makepkg failed"

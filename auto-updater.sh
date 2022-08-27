@@ -49,6 +49,7 @@ ssh aur@aur.archlinux.org list-repos | while read pkgname; do
             echo "[${pkgname}] Cloned"
             chown -R pasudo "${pkgname}"
             cd "${pkgname}"
+            sed -i "s/pkgrel=.*$/pkgrel=1/g" PKGBUILD
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
             if ${PASUDO} updpkgsums; then
                 ${PASUDO} makepkg --printsrcinfo > .SRCINFO

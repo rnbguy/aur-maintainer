@@ -17,8 +17,5 @@ jobs:
         ACTOR: ${{ github.actor }}
         CI: true
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-
-      - name: Run Archlinux docker
-        run: bash auto-updater.sh
+      - uses: actions/checkout@v2
+      - run: bash auto-updater.sh

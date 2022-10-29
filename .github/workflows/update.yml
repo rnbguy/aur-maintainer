@@ -10,17 +10,15 @@ jobs:
     name: Update AUR Packages
     environment: AUR-ssh
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      env:
+        SSH_PRIV_KEY: ${{ secrets.SSH_PRIV_KEY }}
+        ACTOR: ${{ github.actor }}
+        CI: true
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
 
       - name: Run Archlinux docker
-        run: |
-          docker run \
-          --pull always \
-          -e "SSH_PRIV_KEY=${{ secrets.SSH_PRIV_KEY }}" \
-          -e "ACTOR=${GITHUB_ACTOR}" \
-          -e "CI=${CI}" \
-          -v $(pwd):/scripts \
-          archlinux:base-devel \
-          bash /scripts/auto-updater.sh
+        run: bash auto-updater.sh

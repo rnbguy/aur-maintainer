@@ -8,6 +8,8 @@ if [[ -n "${CI-}" ]]; then
     [[ -z "${SSH_PRIV_KEY}" ]] && >&2 echo "no ssh private key" && exit
     [[ -z "${ACTOR}" ]] && >&2 echo "no actor" && exit
 
+    HOME=`getent passwd $(whoami) | cut -d: -f6`
+
     # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
     2>&1 pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null
 

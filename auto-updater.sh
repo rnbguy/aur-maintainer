@@ -8,10 +8,10 @@ if [[ -n "${CI-}" ]]; then
     [[ -z "${SSH_PRIV_KEY}" ]] && >&2 echo "no ssh private key" && exit
     [[ -z "${ACTOR}" ]] && >&2 echo "no actor" && exit
 
-    HOME=`getent passwd $(whoami) | cut -d: -f6`
+    HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
 
     # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
-    2>&1 pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null
+    pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null 2>&1
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"
@@ -25,8 +25,8 @@ if [[ -n "${CI-}" ]]; then
     mkdir -p ~/.ssh
     (umask 0077; echo "${SSH_PRIV_KEY}" > ~/.ssh/aur 2> /dev/null)
     (umask 0077; ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2> /dev/null)
-    eval $(ssh-agent) > /dev/null
-    2>&1 ssh-add ~/.ssh/aur > /dev/null
+    eval "$(ssh-agent)" > /dev/null
+    ssh-add ~/.ssh/aur > /dev/null 2>&1
 fi
 
 function latest_release() {
@@ -37,7 +37,7 @@ function latest_release() {
 
 echo "Running the auto updater.."
 
-ssh aur@aur.archlinux.org list-repos | while read pkgname; do
+ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
     srcinfo_blob=$(curl -s "https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}")
     # if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
     if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*"); then

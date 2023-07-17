@@ -39,7 +39,8 @@ echo "Running the auto updater.."
 
 ssh aur@aur.archlinux.org list-repos | while read pkgname; do
     srcinfo_blob=$(curl -s "https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}")
-    if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
+    # if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
+    if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*"); then
         old_ver=$(echo "${srcinfo_blob}" | grep -oP "pkgver = \K.*$")
         new_ver=$(latest_release "${ghpath}") || (>&2 echo "[${pkgname}] GH API failed" && exit)
 

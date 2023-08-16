@@ -11,7 +11,7 @@ if [[ -n "${CI-}" ]]; then
     HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
 
     # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
-    pacman -Syu git jq openssh pacman-contrib --asdeps --needed --noconfirm > /dev/null 2>&1
+    pacman -Syu --asdeps --needed --noconfirm git jq openssh pacman-contrib > /dev/null 2>&1
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"
@@ -56,6 +56,7 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
             if ${PASUDO} updpkgsums; then
                 ${PASUDO} makepkg --printsrcinfo > .SRCINFO
+                grep '^\s*\(make\|\)depends =' .SRCINFO | tr -d ' ' | cut -d'=' -f2 | xargs pacman -Syu --asdeps --needed --noconfirm
                 if ${PASUDO} makepkg -sdc && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
                     echo "[${pkgname}] updated to ${new_ver}"
                 else

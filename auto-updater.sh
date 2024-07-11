@@ -15,6 +15,7 @@ if [[ -n "${CI-}" ]]; then
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"
+    git config --global init.defaultBranch "master"
 
     # create non-sudo user
     useradd --system pasudo

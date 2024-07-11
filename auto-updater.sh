@@ -32,6 +32,7 @@ fi
 
 function latest_release() {
     curl -s "https://api.github.com/repos/${1}/releases/latest" \
+        --header "authorization: Bearer ${GITHUB_TOKEN}" \
     | jq -er .tag_name \
     | sed 's/^v//g'
 }

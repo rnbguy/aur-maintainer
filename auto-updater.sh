@@ -10,8 +10,8 @@ if [[ -n "${CI-}" ]]; then
 
     HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
 
-    # install git, jq, openssh (ssh), pacman-contrib (updpkgsums)
-    pacman -Syu --asdeps --needed --noconfirm git jq openssh pacman-contrib > /dev/null 2>&1
+    # install git, jq, openssh (ssh), pacman-contrib (updpkgsums), namcap
+    pacman -Syu --asdeps --needed --noconfirm git jq openssh pacman-contrib namcap > /dev/null 2>&1
 
     git config --global user.name "${ACTOR}"
     git config --global user.email "ci@github"
@@ -68,6 +68,7 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
                 >&2 echo "[${pkgname}] Updating checksums failed"
             fi
             chown -R root "../${pkgname}" && git clean -fdx
+            namcap -i PKGBUILD
             cd - > /dev/null
         else
             echo "[${pkgname}] no update"

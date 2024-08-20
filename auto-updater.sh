@@ -56,10 +56,10 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
             cd "$pkgname"
             sed -i "s/pkgrel=.*$/pkgrel=1/g" PKGBUILD
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
-            if "$PASUDO" updpkgsums; then
-                "$PASUDO" makepkg --printsrcinfo > .SRCINFO
+            if ${PASUDO} updpkgsums; then
+                ${PASUDO} makepkg --printsrcinfo > .SRCINFO
                 grep '^\s*\(make\|\)depends =' .SRCINFO | tr -d ' ' | cut -d'=' -f2 | xargs pacman -Syu --asdeps --needed --noconfirm
-                if "$PASUDO" makepkg -sdc && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
+                if ${PASUDO} makepkg -sdc && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
                     echo "[${pkgname}] updated to ${new_ver}"
                 else
                     >&2 echo "[${pkgname}] makepkg failed"

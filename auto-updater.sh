@@ -63,9 +63,11 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
                     echo "[${pkgname}] updated to ${new_ver}"
                 else
                     >&2 echo "[${pkgname}] makepkg failed"
+                    exit 1
                 fi
             else
                 >&2 echo "[${pkgname}] Updating checksums failed"
+                exit 1
             fi
             chown -R root "../${pkgname}" && git clean -fdx
             namcap -i PKGBUILD

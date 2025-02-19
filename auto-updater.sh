@@ -18,7 +18,7 @@ if [[ -n "${CI-}" ]]; then
     git config --global init.defaultBranch "master"
 
     # create non-sudo user
-    useradd --system pasudo
+    useradd --create-home --system pasudo
     echo 'aur ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/aur
     PASUDO="sudo -u pasudo"
 

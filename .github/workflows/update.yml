@@ -27,6 +27,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash auto-updater.sh
       - name: Setup tmate session
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
         uses: mxschmitt/action-tmate@v3
         timeout-minutes: 15

@@ -30,9 +30,13 @@ if [[ -n "${CI-}" ]]; then
     ssh-add ~/.ssh/aur > /dev/null 2>&1
 fi
 
-function latest_release() {
+function latest_gh_release() {
     curl -s "https://api.github.com/repos/${1}/releases/latest" \
-        --header "authorization: Bearer ${GITHUB_TOKEN}" \
+        --header "authorization: Bearer ${GITHUB_TOKEN}"
+}
+
+function latest_version() {
+    latest_gh_release "$1" \
     | jq -er .tag_name \
     | sed 's/^v//g'
 }
@@ -44,7 +48,13 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
     # if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
     if ghpath=$(echo "$srcinfo_blob" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*"); then
         old_ver=$(echo "$srcinfo_blob" | grep -oP "pkgver = \K.*$")
-        new_ver=$(latest_release "$ghpath") || (>&2 echo "[${pkgname}] GH API failed" && exit)
+        new_ver=$(latest_version "$ghpath") || (>&2 echo "[${pkgname}] GH API failed" && exit)
+
+        if [[ "$new_ver" == "null" ]]; then
+            echo "[${pkgname}] no release found"
+            latest_gh_release "$ghpath"
+            continue
+        fi
 
         echo "[${pkgname}] https://github.com/${ghpath} : ${old_ver} => ${new_ver}"
 

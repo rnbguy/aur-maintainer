@@ -38,7 +38,8 @@ function latest_gh_release() {
 function latest_version() {
     latest_gh_release "$1" \
     | jq -er .tag_name \
-    | sed 's/^v//g'
+    | sed 's/^v//g' \
+    | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$'
 }
 
 echo "Running the auto updater.."
@@ -50,7 +51,7 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
         old_ver=$(echo "$srcinfo_blob" | grep -oP "pkgver = \K.*$")
         new_ver=$(latest_version "$ghpath") || (>&2 echo "[${pkgname}] GH API failed" && exit)
 
-        if [[ "$new_ver" == "null" ]]; then
+        if [[ "$new_ver" == "" ]]; then
             echo "[${pkgname}] no release found"
             latest_gh_release "$ghpath"
             continue

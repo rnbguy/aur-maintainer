@@ -24,7 +24,7 @@ jobs:
         ACTOR: ${{ github.actor }}
         CI: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: bash auto-updater.sh
       - name: Setup tmate session
         if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}

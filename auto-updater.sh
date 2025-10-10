@@ -2,7 +2,7 @@
 
 set -eu
 
-PASUDO=""
+PASUDO=()
 
 if [[ -n "${CI-}" ]]; then
     [[ -z "$SSH_PRIV_KEY" ]] && >&2 echo "no ssh private key" && exit
@@ -20,7 +20,7 @@ if [[ -n "${CI-}" ]]; then
     # create non-sudo user
     useradd --create-home --system pasudo
     echo 'aur ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/aur
-    PASUDO="sudo -u pasudo"
+    PASUDO=(sudo -u pasudo)
 
     # setup ssh
     mkdir -p ~/.ssh
@@ -42,14 +42,65 @@ function latest_version() {
     | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$'
 }
 
+log_info() {
+    printf '%s\n' "$*"
+}
+
+log_error() {
+    >&2 printf '%s\n' "$*"
+}
+
+fail_pkg() {
+    local pkg="$1"
+    shift || true
+    exit_code=1
+    log_error "[${pkg}] $*"
+}
+
+run_pkg_step() {
+    local pkg="$1"
+    local message="$2"
+    shift 2 || true
+    if ! "$@"; then
+        fail_pkg "$pkg" "$message"
+        return 1
+    fi
+}
+
+push_pkg_dir() {
+    local pkg="$1"
+    if ! pushd "$pkg" > /dev/null; then
+        fail_pkg "$pkg" "entering directory failed"
+        return 1
+    fi
+}
+
+pop_pkg_dir() {
+    popd > /dev/null || true
+}
+
+run_as_pasudo() {
+    if ((${#PASUDO[@]} > 0)); then
+        "${PASUDO[@]}" "$@"
+    else
+        "$@"
+    fi
+}
+
 echo "Running the auto updater.."
 
-ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
+exit_code=0
+
+while read -r pkgname; do
     srcinfo_blob=$(curl -s "https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}")
     # if ghpath=$(echo "${srcinfo_blob}" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*(?=/releases/download)"); then
     if ghpath=$(echo "$srcinfo_blob" | grep -oPm1 "(?<=https://github.com/)[^/]*/[^/]*"); then
         old_ver=$(echo "$srcinfo_blob" | grep -oP "pkgver = \K.*$")
-        new_ver=$(latest_version "$ghpath") || (>&2 echo "[${pkgname}] GH API failed" && exit)
+        if ! new_ver=$(latest_version "$ghpath"); then
+            >&2 echo "[${pkgname}] GH API failed"
+            exit_code=1
+            continue
+        fi
 
         if [[ "$new_ver" == "" ]]; then
             echo "[${pkgname}] no release found"
@@ -60,33 +111,74 @@ ssh aur@aur.archlinux.org list-repos | while read -r pkgname; do
         echo "[${pkgname}] https://github.com/${ghpath} : ${old_ver} => ${new_ver}"
 
         if [[ "$old_ver" != "$new_ver" ]]; then
-            echo "[${pkgname}] Updating"
-            git clone --depth 1 "ssh://aur@aur.archlinux.org/${pkgname}"
-            echo "[${pkgname}] Cloned"
-            chown -R pasudo "$pkgname"
-            cd "$pkgname"
+            log_info "[${pkgname}] Updating"
+            if ! run_pkg_step "$pkgname" "git clone failed" git clone --depth 1 "ssh://aur@aur.archlinux.org/${pkgname}"; then
+                continue
+            fi
+            log_info "[${pkgname}] Cloned"
+            if ! run_pkg_step "$pkgname" "chown failed" chown -R pasudo "$pkgname"; then
+                continue
+            fi
+            if ! push_pkg_dir "$pkgname"; then
+                continue
+            fi
             sed -i "s/pkgrel=.*$/pkgrel=1/g" PKGBUILD
             sed -i "s/pkgver=.*$/pkgver=${new_ver}/g" PKGBUILD
-            if ${PASUDO} updpkgsums; then
-                ${PASUDO} makepkg --printsrcinfo > .SRCINFO
-                grep '^\s*makedepends =' .SRCINFO | tr -d ' ' | cut -d'=' -f2 | xargs pacman -Syu --asdeps --needed --noconfirm
-                if ${PASUDO} makepkg -sdc && chown -R root "../${pkgname}" && git commit -am "$new_ver" && git push; then
-                    echo "[${pkgname}] updated to ${new_ver}"
-                else
-                    >&2 echo "[${pkgname}] makepkg failed"
-                    exit 1
-                fi
-            else
-                >&2 echo "[${pkgname}] Updating checksums failed"
-                exit 1
+
+            if ! run_as_pasudo updpkgsums; then
+                fail_pkg "$pkgname" "Updating checksums failed"
+                pop_pkg_dir
+                continue
             fi
-            chown -R root "../${pkgname}" && git clean -fdx
-            namcap -i PKGBUILD
-            cd - > /dev/null
+
+            if ! run_as_pasudo makepkg --printsrcinfo > .SRCINFO; then
+                fail_pkg "$pkgname" "generating .SRCINFO failed"
+                pop_pkg_dir
+                continue
+            fi
+
+            mapfile -t makedepends < <(grep -E '^\s*makedepends\s*=\s*' .SRCINFO | tr -d ' ' | cut -d'=' -f2)
+            if ((${#makedepends[@]} > 0)); then
+                if ! pacman -Syu --asdeps --needed --noconfirm "${makedepends[@]}"; then
+                    fail_pkg "$pkgname" "installing makedepends failed"
+                    pop_pkg_dir
+                    continue
+                fi
+            fi
+
+            if ! run_pkg_step "$pkgname" "makepkg failed" run_as_pasudo makepkg -sdc; then
+                pop_pkg_dir
+                continue
+            fi
+            if ! run_pkg_step "$pkgname" "chown root failed" chown -R root "../${pkgname}"; then
+                pop_pkg_dir
+                continue
+            fi
+            if ! run_pkg_step "$pkgname" "git commit failed" git commit -am "$new_ver"; then
+                pop_pkg_dir
+                continue
+            fi
+            if ! run_pkg_step "$pkgname" "git push failed" git push; then
+                pop_pkg_dir
+                continue
+            fi
+            if ! run_pkg_step "$pkgname" "git clean failed" git clean -fdx; then
+                pop_pkg_dir
+                continue
+            fi
+            if ! run_pkg_step "$pkgname" "namcap failed" namcap -i PKGBUILD; then
+                pop_pkg_dir
+                continue
+            fi
+
+            pop_pkg_dir
+            log_info "[${pkgname}] updated to ${new_ver}"
         else
             echo "[${pkgname}] no update"
         fi
     else
         echo "[${pkgname}] not a github project"
     fi
-done
+done < <(ssh aur@aur.archlinux.org list-repos)
+
+exit "$exit_code"

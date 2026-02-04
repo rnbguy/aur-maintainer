@@ -12,7 +12,7 @@ PASUDO=()
 exit_code=0
 
 validate_environment() {
-    local required_tools=(curl jq git ssh)
+    local required_tools=(curl jq git ssh vercmp)
     local tool
 
     # Check for required tools
@@ -189,6 +189,17 @@ process_pkg() {
     log_info "[${pkgname}] https://github.com/${ghpath} : ${old_ver} => ${new_ver}"
 
     if [[ "$old_ver" == "$new_ver" ]]; then
+        log_info "[${pkgname}] no update"
+        return 0
+    fi
+
+    local vercmp_result
+    vercmp_result=$(vercmp "$new_ver" "$old_ver")
+    if [[ "$vercmp_result" -lt 0 ]]; then
+        log_error "[${pkgname}] warning: new version ${new_ver} is older than ${old_ver}"
+        return 0
+    fi
+    if [[ "$vercmp_result" -eq 0 ]]; then
         log_info "[${pkgname}] no update"
         return 0
     fi

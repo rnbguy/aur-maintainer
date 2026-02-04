@@ -11,6 +11,33 @@ readonly AUR_QUERY_DELAY_SECONDS=5
 PASUDO=()
 exit_code=0
 
+validate_environment() {
+    local required_tools=(curl jq git ssh)
+    local tool
+
+    # Check for required tools
+    for tool in "${required_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            log_error "Required tool not found: $tool"
+            return 1
+        fi
+    done
+
+    # Validate GITHUB_TOKEN is set
+    if [[ -z "${GITHUB_TOKEN-}" ]]; then
+        log_error "GITHUB_TOKEN is not set"
+        return 1
+    fi
+
+    # Test GITHUB_TOKEN by making a simple API call
+    if ! curl -fs -H "authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/user >/dev/null 2>&1; then
+        log_error "GITHUB_TOKEN validation failed; token may be invalid or expired"
+        return 1
+    fi
+
+    return 0
+}
+
 ensure_github_token() {
     if [[ -n "${CI-}" ]]; then
         [[ -n "${GITHUB_TOKEN-}" ]] || { log_error "GITHUB_TOKEN missing"; exit 1; }
@@ -253,6 +280,7 @@ process_pkg() {
 
 ensure_github_token
 setup_ci_environment
+validate_environment || exit 1
 
 echo "Running the auto updater.."
 

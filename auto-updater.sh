@@ -29,8 +29,8 @@ validate_environment() {
         return 1
     fi
 
-    # Test GITHUB_TOKEN by making a simple API call
-    if ! curl -fs -H "authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/user >/dev/null 2>&1; then
+    # Test GITHUB_TOKEN by making a simple API call (works for GitHub Actions tokens)
+    if ! curl -fs -H "authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/rate_limit >/dev/null 2>&1; then
         log_error "GITHUB_TOKEN validation failed; token may be invalid or expired"
         return 1
     fi

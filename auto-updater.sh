@@ -147,7 +147,9 @@ setup_ci_environment() {
     git config --global init.defaultBranch "master"
 
     useradd --create-home --system "$PASUDO_USER"
-    echo 'aur ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/aur
+    printf '%s ALL=(root) NOPASSWD: /usr/bin/pacman\n' "$PASUDO_USER" \
+        > "/etc/sudoers.d/${PASUDO_USER}"
+    chmod 0440 "/etc/sudoers.d/${PASUDO_USER}"
 
     PASUDO=(sudo -u "$PASUDO_USER")
 
@@ -245,19 +247,8 @@ process_pkg() {
         return 1
     fi
 
-    mapfile -t makedepends < <(grep -E '^\s*makedepends\s*=\s*' .SRCINFO | tr -d ' ' | cut -d'=' -f2 || true)
-    if ((${#makedepends[@]} > 0)); then
-        if [[ -n "${CI-}" ]]; then
-            if ! pacman -Syu --quiet --noconfirm --asdeps --needed "${makedepends[@]}"; then
-                fail_pkg "$pkgname" "installing makedepends failed"
-                return 1
-            fi
-        else
-            log_info "[${pkgname}] skipping makedepends install (requires root privileges)"
-        fi
-    fi
-
-    if ! run_pkg_step "$pkgname" "makepkg failed" run_as_pasudo makepkg -sdc; then
+    if ! run_pkg_step "$pkgname" "makepkg failed" run_as_pasudo \
+        makepkg --syncdeps --rmdeps --clean --noconfirm; then
         return 1
     fi
 

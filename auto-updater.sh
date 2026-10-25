@@ -12,7 +12,7 @@ PASUDO=()
 exit_code=0
 
 validate_environment() {
-    local required_tools=(curl jq git ssh vercmp)
+    local required_tools=(curl jq git ssh vercmp yay)
     local tool
 
     # Check for required tools
@@ -153,6 +153,16 @@ setup_ci_environment() {
 
     PASUDO=(sudo -u "$PASUDO_USER")
 
+    # Bootstrap yay so package builds can resolve AUR dependencies.
+    (
+        build_dir=$(mktemp -d)
+        trap 'rm -rf "$build_dir"' EXIT
+        chown "$PASUDO_USER" "$build_dir"
+        run_as_pasudo git clone --depth 1 "https://${AUR_HOST}/yay-bin.git" "$build_dir/yay-bin"
+        run_as_pasudo makepkg --dir "$build_dir/yay-bin" \
+            --syncdeps --install --asdeps --needed --clean --noconfirm
+    )
+
     mkdir -p ~/.ssh
     (umask 0077; echo "$SSH_PRIV_KEY" > ~/.ssh/aur 2> /dev/null)
     (umask 0077; ssh-keyscan "$AUR_HOST" >> ~/.ssh/known_hosts 2> /dev/null)
@@ -163,6 +173,7 @@ setup_ci_environment() {
 process_pkg() {
     local pkgname="$1"
     local srcinfo_blob ghpath old_ver new_ver srcinfo_url previous_dir pkg_clone_path
+    local deps=()
 
     srcinfo_url="https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}"
     if ! srcinfo_blob=$(aur_query "$srcinfo_url"); then
@@ -245,6 +256,16 @@ process_pkg() {
     if ! run_as_pasudo makepkg --printsrcinfo > .SRCINFO; then
         fail_pkg "$pkgname" "generating .SRCINFO failed"
         return 1
+    fi
+
+    mapfile -t deps < <(
+        grep -oP "^\s*(?:depends|makedepends|checkdepends)(?:_$(uname -m))? = \K.*" .SRCINFO
+    )
+    if ((${#deps[@]} > 0)); then
+        if ! run_pkg_step "$pkgname" "installing dependencies failed" run_as_pasudo \
+            yay --sync --provides --asdeps --needed --noconfirm "${deps[@]}"; then
+            return 1
+        fi
     fi
 
     if ! run_pkg_step "$pkgname" "makepkg failed" run_as_pasudo \

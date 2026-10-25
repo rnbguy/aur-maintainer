@@ -5,6 +5,9 @@ set -euo pipefail
 readonly AUR_HOST="aur.archlinux.org"
 readonly AUR_SSH_BASE="ssh://aur@${AUR_HOST}"
 readonly CI_SOURCE_PKGS=(git jq openssh pacman-contrib namcap)
+declare -Ar EXCLUDED_PKGS=(
+    [python-timestral-git]=1
+)
 readonly PASUDO_USER="pasudo"
 readonly AUR_QUERY_DELAY_SECONDS=5
 
@@ -174,6 +177,11 @@ process_pkg() {
     local pkgname="$1"
     local srcinfo_blob ghpath old_ver new_ver srcinfo_url previous_dir pkg_clone_path
     local deps=()
+
+    if [[ -n "${EXCLUDED_PKGS[$pkgname]+present}" ]]; then
+        log_info "[${pkgname}] skipping excluded package"
+        return 0
+    fi
 
     srcinfo_url="https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h=${pkgname}"
     if ! srcinfo_blob=$(aur_query "$srcinfo_url"); then
